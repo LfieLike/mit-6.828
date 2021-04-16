@@ -9,7 +9,8 @@
 
 #define STACK_SIZE  8192
 #define MAX_THREAD  4
-struct uthread_context {
+
+struct context {
   uint64 ra;
   uint64 sp;
 
@@ -27,12 +28,10 @@ struct uthread_context {
   uint64 s10;
   uint64 s11;
 };
-
 struct thread {
-  struct uthread_context context;
+  struct context context;
   char       stack[STACK_SIZE]; /* the thread's stack */
   int        state;             /* FREE, RUNNING, RUNNABLE */
-  
 };
 struct thread all_thread[MAX_THREAD];
 struct thread *current_thread;
@@ -96,7 +95,7 @@ thread_create(void (*func)())
   }
   t->state = RUNNABLE;
   // YOUR CODE HERE
-  t->context.sp = (uint64)t->stack+STACK_SIZE;
+  t->context.sp = (uint64)t->stack;
   t->context.ra = (uint64)func;
 }
 
@@ -175,15 +174,10 @@ main(int argc, char *argv[])
 {
   a_started = b_started = c_started = 0;
   a_n = b_n = c_n = 0;
-  printf("1\n");
   thread_init();
-  printf("2\n");
   thread_create(thread_a);
-  printf("3\n");
   thread_create(thread_b);
-  printf("4\n");
   thread_create(thread_c);
-  printf("5\n");
   thread_schedule();
   exit(0);
 }
