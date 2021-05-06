@@ -380,17 +380,16 @@ bmap(struct inode *ip, uint bn)
   uint addr, *a;
   struct buf *bp;
 
-  if(bn < NDIRECT){
+  if(bn < NDIRECT-2){
     if((addr = ip->addrs[bn]) == 0)
       ip->addrs[bn] = addr = balloc(ip->dev);
     return addr;
   }
-  bn -= NDIRECT;
-
-  if(bn < NINDIRECT){
+  bn -= (NDIRECT-2);
+  if(bn < (NINDIRECT)){
     // Load indirect block, allocating if necessary.
-    if((addr = ip->addrs[NDIRECT]) == 0)
-      ip->addrs[NDIRECT] = addr = balloc(ip->dev);
+    if((addr = ip->addrs[NDIRECT-2]) == 0)
+      ip->addrs[NDIRECT-2] = addr = balloc(ip->dev);
     bp = bread(ip->dev, addr);
     a = (uint*)bp->data;
     if((addr = a[bn]) == 0){
@@ -398,6 +397,48 @@ bmap(struct inode *ip, uint bn)
       log_write(bp);
     }
     brelse(bp);
+    return addr;
+  }
+  bn -=NINDIRECT;
+  if(bn < (NINDIRECT)){
+    // Load indirect block, allocating if necessary.
+    if((addr = ip->addrs[NDIRECT-1]) == 0)
+      ip->addrs[NDIRECT-1] = addr = balloc(ip->dev);
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    if((addr = a[bn]) == 0){
+      a[bn] = addr = balloc(ip->dev);
+      log_write(bp);
+    }
+    brelse(bp);
+    return addr;
+  }
+  bn -=NINDIRECT;
+uint indirect_idx, final_offset;
+  struct buf *bp2;
+  if (bn < (NINDIRECT)*(NINDIRECT)) {
+    // Load double-indirect block, allocating if necessary
+    if((addr = ip->addrs[NDIRECT]) == 0)
+      ip->addrs[NDIRECT] = addr = balloc(ip->dev);
+    indirect_idx = bn / NINDIRECT; 
+    final_offset = bn % NINDIRECT;
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    // Load indirect block, allocating if necessary
+    if ((addr = a[indirect_idx]) == 0) {
+      a[indirect_idx] = addr = balloc(ip->dev);
+      log_write(bp);
+    }
+    brelse(bp);
+
+    bp2 = bread(ip->dev, addr);
+    a = (uint*)bp2->data;
+    if ((addr = a[final_offset]) == 0) {
+      a[final_offset] = addr = balloc(ip->dev);
+      log_write(bp2);
+    }
+    brelse(bp2);
+    //printf("%d !!\n",addr);
     return addr;
   }
 
@@ -419,7 +460,7 @@ itrunc(struct inode *ip)
       ip->addrs[i] = 0;
     }
   }
-
+  printf("fuck!\n");
   if(ip->addrs[NDIRECT]){
     bp = bread(ip->dev, ip->addrs[NDIRECT]);
     a = (uint*)bp->data;
